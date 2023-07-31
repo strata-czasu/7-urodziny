@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "7 Urodziny Straty"
+version = "0.1.0"
+description = "7 Urodziny Straty"
+authors = ["Daste <stefankar1000@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+"discord.py" = "2.3.1"
+
+[tool.poetry.dev-dependencies]
+black = "^23.7.0"
+isort = "^5.12.0"
+mypy = "^1.4.1"
+pre-commit = "^3.3.3"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
