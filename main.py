@@ -13,6 +13,7 @@ def main() -> None:
         .extension_package("birthday.extensions")
         .extension(".management")
         .extension(".info")
+        .extension(".users")
     )
     bot = Bot(config)
 
