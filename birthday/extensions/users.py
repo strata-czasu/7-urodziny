@@ -1,37 +1,31 @@
-from collections import Counter, defaultdict
-
-from discord import Interaction, Member, User, app_commands
+from discord import Interaction, Member, app_commands
 
 from birthday.common import Bot, Cog
 from birthday.common.bot import Bot
+from birthday.models import Profile
 
 
 @app_commands.guild_only()
 class Users(Cog):
-    def __init__(self, bot: Bot) -> None:
-        super().__init__(bot)
-        # TODO: Replace with a db
-        self.members: dict[int, int] = defaultdict(int)
-
     @app_commands.command(name="punkty")  # type: ignore[arg-type]
     async def points(self, itx: Interaction, member: Member | None = None):
         """Sprawdź ile ktoś ma punktów"""
 
         if member is None:
-            points = self.members.get(itx.user.id, 0)
-            return await itx.response.send_message(f"Masz {points} pkt")
+            assert isinstance(itx.user, Member)
+            profile = await self._get_profile(itx.user)
+            return await itx.response.send_message(f"Masz {profile.points} pkt")
 
-        points = self.members.get(member.id, 0)
-        await itx.response.send_message(f"{member.mention} ma {points} pkt")
+        profile = await self._get_profile(member)
+        await itx.response.send_message(f"{member.mention} ma {profile.points} pkt")
 
     @app_commands.command(name="punkty-top")  # type: ignore[arg-type]
     async def points_top(self, itx: Interaction, amount: int = 10):
         """Sprawdź osoby z największą ilością punktów"""
 
-        member_points = Counter(self.members)
+        top_profiles = await Profile.objects.order_by("-points").limit(amount).all()
         top_string = "\n".join(
-            f"{points} - <@{member}>"
-            for member, points in member_points.most_common(amount)
+            f"{profile.points} - <@{profile.user_id}>" for profile in top_profiles
         )
         await itx.response.send_message(f"Top {amount} użytkowników:\n{top_string}")
 
@@ -45,12 +39,21 @@ class Users(Cog):
                 f"Wybierz więcej niż 0 punktów!", ephemeral=True
             )
 
-        self.members[member.id] += amount
+        profile = await self._get_profile(member)
+        profile.points += amount
+        await profile.update()
 
         await itx.response.send_message(
-            f"Dodano {amount} pkt {member.mention}, "
-            f"ma teraz {self.members.get(member.id)} pkt"
+            f"Dodano {amount} pkt {member.mention}, ma teraz {profile.points} pkt"
         )
+
+    @staticmethod
+    async def _get_profile(member: Member) -> Profile:
+        defaults = {"points": 0}
+        profile, _ = await Profile.objects.get_or_create(
+            defaults, user_id=member.id, guild_id=member.guild.id
+        )
+        return profile
 
 
 async def setup(bot: Bot) -> None:
