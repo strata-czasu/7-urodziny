@@ -4,6 +4,8 @@ from datetime import datetime
 
 from discord.ext import commands
 
+from birthday.models import database
+
 from .config import Config
 
 log = logging.getLogger(__name__)
@@ -23,7 +25,12 @@ class Bot(commands.Bot):
 
         self.start_timestamp = datetime.utcnow()
 
+    async def start(self, token: str, *, reconnect: bool = True) -> None:
+        await super().start(token, reconnect=reconnect)
+        await database.disconnect()
+
     async def setup_hook(self) -> None:
+        await database.connect()
         await self.load_extensions()
 
     async def load_extension(self, name: str, *, package: str | None = None) -> None:
