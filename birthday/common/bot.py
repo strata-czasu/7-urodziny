@@ -25,13 +25,13 @@ class Bot(commands.Bot):
 
         self.start_timestamp = datetime.utcnow()
 
-    async def start(self, token: str, *, reconnect: bool = True) -> None:
-        await super().start(token, reconnect=reconnect)
-        await database.disconnect()
-
     async def setup_hook(self) -> None:
         await database.connect()
         await self.load_extensions()
+
+    async def close(self) -> None:
+        await super().close()
+        await database.disconnect()
 
     async def load_extension(self, name: str, *, package: str | None = None) -> None:
         if package is None:
