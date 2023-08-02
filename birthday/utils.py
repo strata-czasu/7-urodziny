@@ -1,4 +1,29 @@
+from os import environ
+
 from discord import Asset, Member, User
+
+
+def get_env(key: str, default: str | None = None) -> str:
+    """Get an environment variable, or raise an error if no default is provided"""
+
+    value = environ.get(key)
+    if value is None:
+        if default is None:
+            raise ValueError(f"{key} environment variable is not set")
+        return default
+    return value
+
+
+def get_database_url() -> str:
+    """Get a Postgres database url from environment variables"""
+
+    host = get_env("POSTGRES_HOST", "localhost")
+    port = get_env("POSTGRES_PORT", "5432")
+    user = get_env("POSTGRES_USER")
+    password = get_env("POSTGRES_PASSWORD")
+    database = get_env("POSTGRES_DB")
+
+    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
 
 def format_bool(

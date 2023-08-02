@@ -2,6 +2,8 @@
 
 . /venv/bin/activate
 
-# Pre-run steps like migrations and waiting for the database go here...
+wait-for.sh "$POSTGRES_HOST:$POSTGRES_PORT" -- echo Postgres is up
+
+alembic upgrade head
 
 exec "$@"

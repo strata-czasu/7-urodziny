@@ -16,6 +16,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+COPY wait-for.sh /usr/local/bin
 COPY docker-entrypoint.sh /usr/local/bin
 
 COPY --from=build /venv /venv

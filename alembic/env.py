@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
-from sqlalchemy import create_engine, engine_from_config, pool
+from sqlalchemy import create_engine
 
-from alembic import context
-from birthday.models import DATABASE_URL
+from alembic import context  # type: ignore[attr-defined]
+from birthday.utils import get_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -26,7 +26,7 @@ target_metadata = metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-url = DATABASE_URL
+url = get_database_url()
 
 
 def run_migrations_offline() -> None:

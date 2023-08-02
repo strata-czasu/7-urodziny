@@ -1,9 +1,9 @@
 import logging
-from os import environ
 
 from discord import AllowedMentions, Intents
 
 from birthday.common import Bot, Config
+from birthday.utils import get_env
 
 
 def main() -> None:
@@ -18,9 +18,7 @@ def main() -> None:
     bot = Bot(config)
 
     # Token is stored outside of the config object for security reasons
-    token = environ.get("BOT_TOKEN")
-    if token is None:
-        raise ValueError("BOT_TOKEN environment variable is not set")
+    token = get_env("BOT_TOKEN")
     bot.run(token, log_handler=None)
 
 

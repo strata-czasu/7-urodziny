@@ -1,12 +1,10 @@
-from os import environ
-
 import databases
 import ormar
 import sqlalchemy
 
-DATABASE_URL = environ.get("DB_URL", "")
+from birthday.utils import get_database_url
 
-database = databases.Database(DATABASE_URL)
+database = databases.Database(get_database_url())
 metadata = sqlalchemy.MetaData()
 
 
