@@ -29,9 +29,7 @@ class Map(Cog):
         await itx.response.defer()
 
         profile = await Profile.get_for(member.id, member.guild.id)
-        segments: list[int] = await MapSegment.objects.filter(
-            profile=profile
-        ).values_list("number", flatten=True)
+        segments = await self._get_existing_segments(profile)
 
         filename = "mapa.png"
         with BytesIO() as image_binary:
@@ -61,9 +59,7 @@ class Map(Cog):
                 ephemeral=True,
             )
 
-        existing_segments: list[int] = await MapSegment.objects.filter(
-            profile=profile
-        ).values_list("number", flatten=True)
+        existing_segments = await self._get_existing_segments(profile)
         available_segments = self._get_available_segments(existing_segments)
         if len(available_segments) == 0:
             return await itx.response.send_message(
@@ -78,6 +74,39 @@ class Map(Cog):
             f"Kupiłeś/aś część mapy #{segment} za {self.MAP_ELEMENT_COST} pkt"
         )
 
+    @app_commands.command(name="mapa-kup-wszystko")  # type: ignore[arg-type]
+    async def buy_all_map_elements(self, itx: Interaction):
+        """Kup tyle elementów mapy, na ile Cię stać"""
+
+        assert isinstance(itx.user, Member)
+        profile = await Profile.get_for(itx.user.id, itx.user.guild.id)
+        if profile.points < self.MAP_ELEMENT_COST:
+            return await itx.response.send_message(
+                f"Nie masz wystarczająco punktów, potrzebujesz {self.MAP_ELEMENT_COST} pkt",
+                ephemeral=True,
+            )
+
+        existing_segments = await self._get_existing_segments(profile)
+        available_segments = self._get_available_segments(existing_segments)
+        if len(available_segments) == 0:
+            return await itx.response.send_message(
+                f"Masz już wszystkie części mapy!", ephemeral=True
+            )
+
+        segments_to_buy = profile.points // self.MAP_ELEMENT_COST
+        segments = random.sample(available_segments, segments_to_buy)
+        await MapSegment.objects.bulk_create(
+            [MapSegment(profile=profile, number=segment) for segment in segments]
+        )
+        profile.points -= segments_to_buy * self.MAP_ELEMENT_COST
+        await profile.update()
+
+        bought_segments = ", ".join(f"#{segment}" for segment in segments)
+        await itx.response.send_message(
+            f"Kupiłeś/aś {segments_to_buy} części mapy za "
+            f"{segments_to_buy * self.MAP_ELEMENT_COST} pkt: {bought_segments}"
+        )
+
     @app_commands.command(name="mapa-dodaj")  # type: ignore[arg-type]
     @app_commands.describe(
         element="Element mapy, który chcesz dodać (domyślnie losowy)"
@@ -89,9 +118,7 @@ class Map(Cog):
         """Dodaj użytkownikowi element mapy"""
 
         profile = await Profile.get_for(member.id, member.guild.id)
-        existing_segments: list[int] = await MapSegment.objects.filter(
-            profile=profile
-        ).values_list("number", flatten=True)
+        existing_segments = await self._get_existing_segments(profile)
         available_segments = self._get_available_segments(existing_segments)
 
         if element is None:
@@ -126,6 +153,11 @@ class Map(Cog):
         await segment.delete()
         await itx.response.send_message(
             f"Zabrano element #{element} z mapy {member.mention}"
+        )
+
+    async def _get_existing_segments(self, profile: Profile) -> list[int]:
+        return await MapSegment.objects.filter(profile=profile).values_list(
+            "number", flatten=True
         )
 
     def _get_available_segments(self, existing_segments: list[int]) -> list[int]:
