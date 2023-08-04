@@ -21,3 +21,13 @@ class Profile(ormar.Model):
 
     class Meta(BaseMeta):
         tablename = "profile"
+
+
+class MapSegment(ormar.Model):
+    id: int = ormar.Integer(primary_key=True)
+    profile: Profile = ormar.ForeignKey(Profile, nullable=False)
+    number = ormar.Integer(minimum=1, maximum=30)
+
+    class Meta(BaseMeta):
+        tablename = "map_segment"
+        constraints = [ormar.UniqueColumns("profile", "number")]
