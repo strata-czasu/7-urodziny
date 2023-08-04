@@ -32,7 +32,7 @@ class Users(Cog):
 
     @app_commands.command(name="punkty-dodaj")  # type: ignore[arg-type]
     @app_commands.default_permissions(administrator=True)
-    async def points_add(self, itx: Interaction, amount: int, member: Member):
+    async def points_add(self, itx: Interaction, member: Member, amount: int):
         """Dodaj lub odejmij komuś punkty"""
 
         if amount == 0:
