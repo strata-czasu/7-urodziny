@@ -19,12 +19,12 @@ class MapImageGenerator:
         self.segments_path = path.join(path.dirname(__file__), "segments")
         if not path.exists(self.segments_path):
             raise FileNotFoundError("Map segments directory not found")
+        self.background_path = path.join(self.segments_path, "background.jpg")
 
     def get_image(self, segments: list[int]) -> Image:
         """Get the map image"""
 
-        background = (0, 0, 0, 0)
-        output = Image.new("RGBA", (self.WIDTH, self.HEIGHT), background)
+        output = self._get_background().copy()
 
         for segment in segments:
             segment_image = Image.open(self._get_segment_path(segment))
@@ -32,6 +32,12 @@ class MapImageGenerator:
             output.paste(segment_image, segment_position)
 
         return output
+
+    @cache
+    def _get_background(self) -> Image:
+        """Get the background image"""
+
+        return Image.open(self.background_path)
 
     @cache
     def _get_segment(self, segment: int) -> Image:

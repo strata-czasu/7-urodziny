@@ -31,11 +31,11 @@ class Map(Cog):
         profile = await Profile.get_for(member.id, member.guild.id)
         segments = await self._get_existing_segments(profile)
 
-        filename = "mapa.png"
+        filename = "mapa.jpg"
         with BytesIO() as image_binary:
             map_image = self.map_image_generator.get_image(segments)
             # TODO: Compress image to save transfer and speed up uploading
-            map_image.save(image_binary, format="png")
+            map_image.save(image_binary, format="jpeg", optimize=True, quality=85)
             image_binary.seek(0)
             file = File(image_binary, filename)
 
