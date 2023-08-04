@@ -13,10 +13,11 @@ class Users(Cog):
 
         if member is None:
             assert isinstance(itx.user, Member)
-            profile = await self._get_profile(itx.user)
+            member = itx.user
+            profile = await Profile.get_for(member.id, member.guild.id)
             return await itx.response.send_message(f"Masz {profile.points} pkt")
 
-        profile = await self._get_profile(member)
+        profile = await Profile.get_for(member.id, member.guild.id)
         await itx.response.send_message(f"{member.mention} ma {profile.points} pkt")
 
     @app_commands.command(name="punkty-top")  # type: ignore[arg-type]
@@ -39,21 +40,13 @@ class Users(Cog):
                 f"Wybierz więcej niż 0 punktów!", ephemeral=True
             )
 
-        profile = await self._get_profile(member)
+        profile = await Profile.get_for(member.id, member.guild.id)
         profile.points += amount
         await profile.update()
 
         await itx.response.send_message(
             f"Dodano {amount} pkt {member.mention}, ma teraz {profile.points} pkt"
         )
-
-    @staticmethod
-    async def _get_profile(member: Member) -> Profile:
-        defaults = {"points": 0}
-        profile, _ = await Profile.objects.get_or_create(
-            defaults, user_id=member.id, guild_id=member.guild.id
-        )
-        return profile
 
 
 async def setup(bot: Bot) -> None:
