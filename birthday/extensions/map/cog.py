@@ -12,6 +12,8 @@ from .map_image import MapImageGenerator
 
 @app_commands.guild_only()
 class Map(Cog):
+    MAP_ELEMENT_COST = 150
+
     def __init__(self, bot: Bot) -> None:
         super().__init__(bot)
         self.map_image_generator = MapImageGenerator()
@@ -46,6 +48,35 @@ class Map(Cog):
         )
         embed.set_image(url=f"attachment://{filename}")
         await itx.followup.send(embed=embed, file=file)
+
+    @app_commands.command(name="mapa-kup")  # type: ignore[arg-type]
+    async def buy_map_element(self, itx: Interaction):
+        """Kup losową część mapy"""
+
+        assert isinstance(itx.user, Member)
+        profile = await Profile.get_for(itx.user.id, itx.user.guild.id)
+        if profile.points < self.MAP_ELEMENT_COST:
+            return await itx.response.send_message(
+                f"Nie masz wystarczająco punktów, potrzebujesz {self.MAP_ELEMENT_COST} pkt",
+                ephemeral=True,
+            )
+
+        existing_segments: list[int] = await MapSegment.objects.filter(
+            profile=profile
+        ).values_list("number", flatten=True)
+        available_segments = self._get_available_segments(existing_segments)
+        if len(available_segments) == 0:
+            return await itx.response.send_message(
+                f"Masz już wszystkie części mapy!", ephemeral=True
+            )
+
+        segment = random.choice(available_segments)
+        await MapSegment.objects.create(profile=profile, number=segment)
+        profile.points -= self.MAP_ELEMENT_COST
+        await profile.update()
+        await itx.response.send_message(
+            f"Kupiłeś/aś część mapy #{segment} za {self.MAP_ELEMENT_COST} pkt"
+        )
 
     @app_commands.command(name="mapa-dodaj")  # type: ignore[arg-type]
     @app_commands.describe(
