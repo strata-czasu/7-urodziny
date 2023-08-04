@@ -41,7 +41,7 @@ class Map(Cog):
 
         embed = Embed(
             title=f"Mapa {member.display_name}",
-            description=f"Masz już **{len(segments)}/{self.map_image_generator.SEGMENTS}** elementów mapy",
+            description=f"Masz już **{len(segments)}/{self.map_image_generator.SEGMENTS}** części mapy!",
             color=Color.from_str("#f9b800"),
         )
         embed.set_image(url=f"attachment://{filename}")
@@ -58,26 +58,22 @@ class Map(Cog):
         """Dodaj użytkownikowi element mapy"""
 
         profile = await Profile.get_for(member.id, member.guild.id)
-        current_segments: list[int] = await MapSegment.objects.filter(
+        existing_segments: list[int] = await MapSegment.objects.filter(
             profile=profile
         ).values_list("number", flatten=True)
-        available_segments = [
-            i
-            for i in range(1, self.map_image_generator.SEGMENTS + 1)
-            if i not in current_segments
-        ]
+        available_segments = self._get_available_segments(existing_segments)
 
         if element is None:
             element = random.choice(available_segments)
 
         if element not in available_segments:
             return await itx.response.send_message(
-                f"Element {element} jest już na mapie {member.mention}", ephemeral=True
+                f"Element #{element} jest już na mapie {member.mention}", ephemeral=True
             )
 
         await MapSegment.objects.create(profile=profile, number=element)
         await itx.response.send_message(
-            f"Dodano element {element} do mapy {member.mention}"
+            f"Dodano element #{element} do mapy {member.mention}"
         )
 
     @app_commands.command(name="mapa-zabierz")  # type: ignore[arg-type]
@@ -93,10 +89,17 @@ class Map(Cog):
 
         if segment is None:
             return await itx.response.send_message(
-                f"Element {element} nie jest na mapie {member.mention}", ephemeral=True
+                f"Element #{element} nie jest na mapie {member.mention}", ephemeral=True
             )
 
         await segment.delete()
         await itx.response.send_message(
-            f"Zabrano element {element} z mapy {member.mention}"
+            f"Zabrano element #{element} z mapy {member.mention}"
         )
+
+    def _get_available_segments(self, existing_segments: list[int]) -> list[int]:
+        return [
+            i
+            for i in range(1, self.map_image_generator.SEGMENTS + 1)
+            if i not in existing_segments
+        ]
