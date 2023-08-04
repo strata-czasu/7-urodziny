@@ -14,6 +14,7 @@ def main() -> None:
         .extension(".management")
         .extension(".info")
         .extension(".users")
+        .extension(".map")
     )
     bot = Bot(config)
 
