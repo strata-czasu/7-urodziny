@@ -1,4 +1,4 @@
-from discord import Interaction, Member, app_commands
+from discord import Guild, Interaction, Member, app_commands
 
 from birthday.common import Bot, Cog
 from birthday.common.bot import Bot
@@ -24,7 +24,13 @@ class Users(Cog):
     async def points_top(self, itx: Interaction, amount: int = 10):
         """Sprawdź osoby z największą ilością punktów"""
 
-        top_profiles = await Profile.objects.order_by("-points").limit(amount).all()
+        assert isinstance(itx.guild, Guild)
+        top_profiles = (
+            await Profile.objects.filter(guild_id=itx.guild.id)
+            .order_by("-points")
+            .limit(amount)
+            .all()
+        )
         top_string = "\n".join(
             f"{profile.points} - <@{profile.user_id}>" for profile in top_profiles
         )
