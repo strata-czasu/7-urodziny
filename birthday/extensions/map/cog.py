@@ -1,11 +1,12 @@
 import random
+from datetime import datetime
 from io import BytesIO
 
-from discord import Color, Embed, File, Interaction, Member, app_commands
+from discord import Color, Embed, File, Guild, Interaction, Member, app_commands
 
 from birthday.common import Cog
 from birthday.common.bot import Bot
-from birthday.models import MapSegment, Profile
+from birthday.models import MapCompletion, MapSegment, Profile
 
 from .map_image import MapImageGenerator
 
@@ -73,6 +74,7 @@ class Map(Cog):
         await itx.response.send_message(
             f"Kupiłeś/aś część mapy #{segment} za {self.MAP_ELEMENT_COST} pkt"
         )
+        await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-kup-wszystko")  # type: ignore[arg-type]
     async def buy_all_map_elements(self, itx: Interaction):
@@ -110,6 +112,7 @@ class Map(Cog):
             f"Kupiłeś/aś {segments_to_buy} części mapy za "
             f"{segments_to_buy * self.MAP_ELEMENT_COST} pkt: {bought_segments}"
         )
+        await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-dodaj")  # type: ignore[arg-type]
     @app_commands.describe(
@@ -137,6 +140,7 @@ class Map(Cog):
         await itx.response.send_message(
             f"Dodano element #{element} do mapy {member.mention}"
         )
+        await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-zabierz")  # type: ignore[arg-type]
     @app_commands.describe(element="Element mapy, który chcesz zabrać")
@@ -158,6 +162,45 @@ class Map(Cog):
         await itx.response.send_message(
             f"Zabrano element #{element} z mapy {member.mention}"
         )
+
+    @app_commands.command(name="ukonczone-mapy")  # type: ignore[arg-type]
+    async def completed_maps(self, itx: Interaction):
+        """Sprawdź kto ukończył mapę"""
+
+        assert isinstance(itx.guild, Guild)
+        completions = (
+            await MapCompletion.objects.filter(profile__guild_id=itx.guild.id)
+            .order_by("completed_at")
+            .all()
+        )
+
+        def format_time(dt: datetime) -> str:
+            timestamp = int(dt.timestamp())
+            return f"<t:{timestamp}:R>"
+
+        completions_string = "\n".join(
+            f"{i}. <@{completion.profile.user_id}> - {format_time(completion.completed_at)}"
+            for i, completion in enumerate(completions, start=1)
+        )
+        embed = Embed(
+            title="Ukończone mapy",
+            description=completions_string,
+            color=Color.from_str("#f9b800"),
+        )
+        await itx.response.send_message(embed=embed)
+
+    async def _check_map_completion(self, itx: Interaction, profile: Profile):
+        """Check if the user completed the map"""
+
+        existing_segments = await self._get_existing_segments(profile)
+        if len(existing_segments) == self.map_image_generator.SEGMENTS:
+            existing_completions = await MapCompletion.objects.filter(
+                profile__guild_id=profile.guild_id
+            ).count()
+            await MapCompletion.objects.create(profile=profile)
+            await itx.followup.send(
+                f"Gratulacje, ukończyłeś/aś mapę jako **{existing_completions + 1}**!"
+            )
 
     async def _get_existing_segments(self, profile: Profile) -> list[int]:
         return await MapSegment.objects.filter(profile=profile).values_list(
