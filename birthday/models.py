@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import databases
 import ormar
 import sqlalchemy
@@ -41,3 +43,12 @@ class MapSegment(ormar.Model):
     class Meta(BaseMeta):
         tablename = "map_segment"
         constraints = [ormar.UniqueColumns("profile", "number")]
+
+
+class MapCompletion(ormar.Model):
+    id: int = ormar.Integer(primary_key=True)
+    profile: Profile = ormar.ForeignKey(Profile, nullable=False, unique=True)
+    completed_at: datetime = ormar.DateTime(default=datetime.utcnow)
+
+    class Meta(BaseMeta):
+        tablename = "map_completion"
