@@ -2,10 +2,11 @@ import random
 from datetime import datetime
 from io import BytesIO
 
-from discord import Color, Embed, File, Guild, Interaction, Member, app_commands
+from discord import Embed, File, Guild, Interaction, Member, app_commands
 
 from birthday.common import Cog
 from birthday.common.bot import Bot
+from birthday.constants import EMBED_COLOR
 from birthday.models import MapCompletion, MapSegment, Profile
 
 from .map_image import MapImageGenerator
@@ -20,6 +21,10 @@ class Map(Cog):
         self.map_image_generator = MapImageGenerator()
 
     @app_commands.command(name="mapa")  # type: ignore[arg-type]
+    @app_commands.rename(member="użytkownik")
+    @app_commands.describe(
+        member="Użytkownik, którego mapę chcesz sprawdzić (domyślnie Twoją)"
+    )
     async def show_map(self, itx: Interaction, member: Member | None = None):
         """Sprawdź aktualny postęp na mapie"""
 
@@ -35,15 +40,20 @@ class Map(Cog):
         filename = "mapa.jpg"
         with BytesIO() as image_binary:
             map_image = self.map_image_generator.get_image(segments)
-            # TODO: Compress image to save transfer and speed up uploading
             map_image.save(image_binary, format="jpeg", optimize=True, quality=85)
             image_binary.seek(0)
             file = File(image_binary, filename)
 
+        congrats_text = (
+            " Gratulacje!" if len(segments) == self.map_image_generator.SEGMENTS else ""
+        )
         embed = Embed(
             title=f"Mapa {member.display_name}",
-            description=f"Masz już **{len(segments)}/{self.map_image_generator.SEGMENTS}** części mapy!",
-            color=Color.from_str("#f9b800"),
+            description=(
+                f"Masz już **{len(segments)}/{self.map_image_generator.SEGMENTS}** "
+                f"części mapy! {congrats_text}"
+            ),
+            color=EMBED_COLOR,
         )
         embed.set_image(url=f"attachment://{filename}")
         await itx.followup.send(embed=embed, file=file)
@@ -56,7 +66,7 @@ class Map(Cog):
         profile = await Profile.get_for(itx.user.id, itx.user.guild.id)
         if profile.points < self.MAP_ELEMENT_COST:
             return await itx.response.send_message(
-                f"Nie masz wystarczająco punktów, potrzebujesz {self.MAP_ELEMENT_COST} pkt",
+                f"Nie masz wystarczająco dukatów, potrzebujesz **{self.MAP_ELEMENT_COST}** 🪙",
                 ephemeral=True,
             )
 
@@ -71,9 +81,14 @@ class Map(Cog):
         await MapSegment.objects.create(profile=profile, number=segment)
         profile.points -= self.MAP_ELEMENT_COST
         await profile.update()
-        await itx.response.send_message(
-            f"Kupiłeś/aś część mapy #{segment} za {self.MAP_ELEMENT_COST} pkt"
+
+        embed = Embed(
+            title="Zakupiono część mapy!",
+            description=f"Masz aktualnie **{len(existing_segments) + 1}/"
+            f"{self.map_image_generator.SEGMENTS}** części mapy!",
+            color=EMBED_COLOR,
         )
+        await itx.response.send_message(embed=embed)
         await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-kup-wszystko")  # type: ignore[arg-type]
@@ -84,7 +99,7 @@ class Map(Cog):
         profile = await Profile.get_for(itx.user.id, itx.user.guild.id)
         if profile.points < self.MAP_ELEMENT_COST:
             return await itx.response.send_message(
-                f"Nie masz wystarczająco punktów, potrzebujesz {self.MAP_ELEMENT_COST} pkt",
+                f"Nie masz wystarczająco dukatów, potrzebujesz **{self.MAP_ELEMENT_COST}** 🪙",
                 ephemeral=True,
             )
 
@@ -107,16 +122,20 @@ class Map(Cog):
         profile.points -= segments_to_buy * self.MAP_ELEMENT_COST
         await profile.update()
 
-        bought_segments = ", ".join(f"#{segment}" for segment in segments)
-        await itx.response.send_message(
-            f"Kupiłeś/aś {segments_to_buy} części mapy za "
-            f"{segments_to_buy * self.MAP_ELEMENT_COST} pkt: {bought_segments}"
+        embed = Embed(
+            title=f"Zakupiono {segments_to_buy} część mapy!",
+            description=f"Masz aktualnie **{len(existing_segments) + segments_to_buy}/"
+            f"{self.map_image_generator.SEGMENTS}** części mapy!",
+            color=EMBED_COLOR,
         )
+        await itx.response.send_message(embed=embed)
         await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-dodaj")  # type: ignore[arg-type]
+    @app_commands.rename(member="użytkownik")
     @app_commands.describe(
-        element="Element mapy, który chcesz dodać (domyślnie losowy)"
+        member="Użytkownik, któremu chcesz dodać element mapy",
+        element="Element mapy, który chcesz dodać (domyślnie losowy)",
     )
     @app_commands.default_permissions(administrator=True)
     async def add_map_element(
@@ -143,7 +162,11 @@ class Map(Cog):
         await self._check_map_completion(itx, profile)
 
     @app_commands.command(name="mapa-zabierz")  # type: ignore[arg-type]
-    @app_commands.describe(element="Element mapy, który chcesz zabrać")
+    @app_commands.rename(member="użytkownik")
+    @app_commands.describe(
+        member="Użytkownik, któremu chcesz zabrać element mapy",
+        element="Element mapy, który chcesz zabrać",
+    )
     @app_commands.default_permissions(administrator=True)
     async def remove_map_element(self, itx: Interaction, member: Member, element: int):
         """Zabierz użytkownikowi konkretny element mapy"""
@@ -163,7 +186,7 @@ class Map(Cog):
             f"Zabrano element #{element} z mapy {member.mention}"
         )
 
-    @app_commands.command(name="ukonczone-mapy")  # type: ignore[arg-type]
+    @app_commands.command(name="mapa-ranking")  # type: ignore[arg-type]
     async def completed_maps(self, itx: Interaction):
         """Sprawdź kto ukończył mapę"""
 
@@ -171,6 +194,8 @@ class Map(Cog):
         completions = (
             await MapCompletion.objects.filter(profile__guild_id=itx.guild.id)
             .order_by("completed_at")
+            # TODO: Pagination
+            .limit(10)
             .all()
         )
 
@@ -185,7 +210,7 @@ class Map(Cog):
         embed = Embed(
             title="Ukończone mapy",
             description=completions_string,
-            color=Color.from_str("#f9b800"),
+            color=EMBED_COLOR,
         )
         await itx.response.send_message(embed=embed)
 
@@ -194,13 +219,17 @@ class Map(Cog):
 
         existing_segments = await self._get_existing_segments(profile)
         if len(existing_segments) == self.map_image_generator.SEGMENTS:
+            await MapCompletion.objects.create(profile=profile)
             existing_completions = await MapCompletion.objects.filter(
                 profile__guild_id=profile.guild_id
             ).count()
-            await MapCompletion.objects.create(profile=profile)
-            await itx.followup.send(
-                f"Gratulacje, ukończyłeś/aś mapę jako **{existing_completions + 1}**!"
+
+            embed = Embed(
+                title="Ukończono mapę!",
+                description=f"Gratulacje, ukończyłeś/aś mapę jako **{existing_completions}**!",
+                color=EMBED_COLOR,
             )
+            await itx.followup.send(embed=embed)
 
     async def _get_existing_segments(self, profile: Profile) -> list[int]:
         return await MapSegment.objects.filter(profile=profile).values_list(
