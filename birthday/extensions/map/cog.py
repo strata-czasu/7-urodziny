@@ -6,6 +6,7 @@ from discord import Embed, File, Guild, Interaction, Member, app_commands
 
 from birthday.common import Cog
 from birthday.common.bot import Bot
+from birthday.common.views import Paginator
 from birthday.constants import EMBED_COLOR
 from birthday.models import MapCompletion, MapSegment, Profile
 
@@ -194,8 +195,6 @@ class Map(Cog):
         completions = (
             await MapCompletion.objects.filter(profile__guild_id=itx.guild.id)
             .order_by("completed_at")
-            # TODO: Pagination
-            .limit(10)
             .all()
         )
 
@@ -203,16 +202,14 @@ class Map(Cog):
             timestamp = int(dt.timestamp())
             return f"<t:{timestamp}:R>"
 
-        completions_string = "\n".join(
-            f"{i}. <@{completion.profile.user_id}> - {format_time(completion.completed_at)}"
-            for i, completion in enumerate(completions, start=1)
-        )
-        embed = Embed(
-            title="Ukończone mapy",
-            description=completions_string,
-            color=EMBED_COLOR,
-        )
-        await itx.response.send_message(embed=embed)
+        def page_formatter(items: list[MapCompletion], start_position: int) -> str:
+            return "\n".join(
+                f"{i}. <@{completion.profile.user_id}> - {format_time(completion.completed_at)}"
+                for i, completion in enumerate(items, start_position)
+            )
+
+        view = Paginator(itx, "Ukończone mapy", completions, page_formatter)
+        await itx.response.send_message(embed=view.get_embed(), view=view)
 
     async def _check_map_completion(self, itx: Interaction, profile: Profile):
         """Check if the user completed the map"""

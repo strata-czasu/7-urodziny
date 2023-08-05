@@ -2,6 +2,7 @@ from discord import Embed, Guild, Interaction, Member, app_commands
 
 from birthday.common import Bot, Cog
 from birthday.common.bot import Bot
+from birthday.common.views import Paginator
 from birthday.constants import EMBED_COLOR
 from birthday.models import Profile
 
@@ -40,20 +41,17 @@ class Users(Cog):
         top_profiles = (
             await Profile.objects.filter(guild_id=itx.guild.id)
             .order_by("-points")
-            # TODO: Pagination
-            .limit(10)
             .all()
         )
 
-        ranking_string = "\n".join(
-            f"<@{profile.user_id}> - **{profile.points}** 🪙" for profile in top_profiles
-        )
-        embed = Embed(
-            title="Ranking dukatowy 🪙",
-            description=ranking_string,
-            color=EMBED_COLOR,
-        )
-        await itx.response.send_message(embed=embed)
+        def page_formatter(items: list[Profile], start_position: int) -> str:
+            return "\n".join(
+                f"{i}. <@{profile.user_id}> - **{profile.points}** 🪙"
+                for i, profile in enumerate(items, start_position)
+            )
+
+        view = Paginator(itx, "Ranking dukatowy 🪙", top_profiles, page_formatter)
+        await itx.response.send_message(embed=view.get_embed(), view=view)
 
     @app_commands.command(name="dukaty-dodaj")  # type: ignore[arg-type]
     @app_commands.rename(member="użytkownik")
