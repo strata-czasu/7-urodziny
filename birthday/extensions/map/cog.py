@@ -93,7 +93,11 @@ class Map(Cog):
                 f"Masz już wszystkie części mapy!", ephemeral=True
             )
 
-        segments_to_buy = profile.points // self.MAP_ELEMENT_COST
+        segments_to_buy = min(
+            profile.points // self.MAP_ELEMENT_COST,
+            # Limit to the available segments
+            len(available_segments),
+        )
         segments = random.sample(available_segments, segments_to_buy)
         await MapSegment.objects.bulk_create(
             [MapSegment(profile=profile, number=segment) for segment in segments]
