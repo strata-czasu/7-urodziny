@@ -1,11 +1,11 @@
-from typing import Callable, Generic, TypeVar
+from typing import Awaitable, Callable, Generic, TypeVar
 
-from discord import Embed, Interaction
-from discord.ui import Button, View, button
+from discord import Embed, Interaction, Member, User
+from discord.ui import Button, UserSelect, View, button, select
 
 from birthday.constants import EMBED_COLOR
 
-__all__ = ("Paginator",)
+__all__ = ("Paginator", "UserSelectView")
 
 T = TypeVar("T")
 
@@ -67,6 +67,34 @@ class Paginator(Generic[T], View):
     async def on_right_arrow(self, itx: Interaction, button: Button):
         self._switch_page(1)
         await itx.response.edit_message(embed=self.get_embed())
+
+    async def on_timeout(self) -> None:
+        self.clear_items()
+        await self._target.edit_original_response(view=None)
+
+
+class UserSelectView(View):
+    def __init__(
+        self,
+        target: Interaction,
+        callback: Callable[[Interaction, list[Member | User]], Awaitable[None]],
+        *,
+        timeout: float | None = 180,
+    ) -> None:
+        super().__init__(timeout=timeout)
+        self._target = target
+        self._callback = callback
+
+    @select(
+        cls=UserSelect,
+        placeholder="Wybierz użytkowników",
+        min_values=1,
+        max_values=25,
+    )
+    async def user_select(self, itx: Interaction, select: UserSelect):
+        await self._callback(itx, select.values)
+        await self.on_timeout()
+        self.stop()
 
     async def on_timeout(self) -> None:
         self.clear_items()

@@ -1,8 +1,8 @@
-from discord import Embed, Guild, Interaction, Member, app_commands
+from discord import Embed, Guild, Interaction, Member, User, app_commands
 
 from birthday.common import Bot, Cog
 from birthday.common.bot import Bot
-from birthday.common.views import Paginator
+from birthday.common.views import Paginator, UserSelectView
 from birthday.constants import EMBED_COLOR
 from birthday.models import Profile
 
@@ -54,7 +54,7 @@ class Users(Cog):
         await itx.response.send_message(embed=view.get_embed(), view=view)
 
     @app_commands.command(name="dukaty-dodaj")  # type: ignore[arg-type]
-    @app_commands.rename(member="użytkownik")
+    @app_commands.rename(member="użytkownik", amount="ilość")
     @app_commands.describe(
         member="Użytkownik, któremu chcesz dodać dukaty",
         amount="Ilość dukatów (może być ujemna)",
@@ -78,6 +78,40 @@ class Users(Cog):
             color=EMBED_COLOR,
         )
         await itx.response.send_message(embed=embed)
+
+    @app_commands.command(name="dukaty-dodaj-wiele")  # type: ignore[arg-type]
+    @app_commands.rename(amount="ilość")
+    @app_commands.describe(amount="Ilość dukatów (może być ujemna)")
+    @app_commands.default_permissions(administrator=True)
+    async def points_add_multiple(self, itx: Interaction, amount: int):
+        """Dodaj lub odejmij dukaty wielu użytkownikom jednocześnie"""
+
+        if amount == 0:
+            return await itx.response.send_message(
+                f"Wybierz więcej niż 0 dukatów!", ephemeral=True
+            )
+
+        async def user_select_callback(
+            itx: Interaction, users: list[Member | User]
+        ) -> None:
+            assert isinstance(itx.guild, Guild)
+            updated_profiles: list[Profile] = []
+            for user in users:
+                profile = await Profile.get_for(user.id, itx.guild.id)
+                profile.points += amount
+                updated_profiles.append(profile)
+
+            await Profile.objects.bulk_update(updated_profiles, ["points"])
+            await itx.response.send_message(
+                f"Na konta wybranych osób wypłynęło **{amount}** 🪙"
+            )
+
+        view = UserSelectView(itx, user_select_callback)
+        await itx.response.send_message(
+            f"Wybierz użytkowników, którym chcesz dodać **{amount}** 🪙",
+            view=view,
+            ephemeral=True,
+        )
 
 
 async def setup(bot: Bot) -> None:
