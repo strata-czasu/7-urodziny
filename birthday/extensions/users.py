@@ -102,8 +102,11 @@ class Users(Cog):
                 updated_profiles.append(profile)
 
             await Profile.objects.bulk_update(updated_profiles, ["points"])
+            users_str = ", ".join(
+                f"<@{profile.user_id}>" for profile in updated_profiles
+            )
             await itx.response.send_message(
-                f"Na konta wybranych osób wypłynęło **{amount}** 🪙"
+                f"Na konta {users_str} wypłynęło **{amount}** 🪙"
             )
 
         view = UserSelectView(itx, user_select_callback)
