@@ -22,13 +22,14 @@ class Management(Cog):
     async def sync(self, ctx: Context):
         """Sync global commands to the current guild"""
 
+        assert isinstance(ctx.guild, Guild)
         async with ctx.typing():
             self.bot.tree.copy_global_to(guild=ctx.guild)
             synced = await self.bot.tree.sync(guild=ctx.guild)
 
             await ctx.send(f"Synced {len(synced)} command(s) to this guild")
 
-    @sync.command(name="global")
+    @sync.command(name="global")  # type: ignore[arg-type]
     async def sync_global(self, ctx: Context):
         """Sync global commands"""
 
@@ -37,35 +38,36 @@ class Management(Cog):
 
             await ctx.send(f"Synced {len(synced)} command(s) globally")
 
-    @sync.command(name="guild", aliases=["guilds"])
+    @sync.command(name="guild", aliases=["guilds"])  # type: ignore[arg-type]
     @commands.guild_only()
-    async def sync_guild(self, ctx: Context, guilds: Greedy[Guild] = None):
+    async def sync_guild(self, ctx: Context, guilds: Greedy[Guild]):
         """Sync guild commands"""
 
-        if not guilds:
-            guilds = [ctx.guild]
+        if len(guilds) == 0:
+            assert isinstance(ctx.guild, Guild)
+            guilds.append(ctx.guild)
 
-        guild_count = 0
-        command_count = 0
+        synced_guilds = 0
+        synced_commands = 0
 
         async with ctx.typing():
             for guild in guilds:
                 try:
                     synced = await self.bot.tree.sync(guild=guild)
-                    guild_count += 1
-                    command_count += len(synced)
+                    synced_guilds += 1
+                    synced_commands += len(synced)
                 except discord.HTTPException:
                     pass
 
             await ctx.send(
-                f"Synced {command_count} command(s) to {guild_count} guild(s)"
+                f"Synced {synced_commands} command(s) to {synced_guilds} guild(s)"
             )
 
     @commands.group(name="clear")
     async def clear(self, _: Context):
         ...
 
-    @clear.command(name="global")
+    @clear.command(name="global")  # type: ignore[arg-type]
     async def clear_global(self, ctx: Context):
         """Clear global commands"""
 
@@ -75,26 +77,27 @@ class Management(Cog):
 
             await ctx.send("Cleared command(s) globally")
 
-    @clear.command(name="guild", aliases=["guilds"])
+    @clear.command(name="guild", aliases=["guilds"])  # type: ignore[arg-type]
     @commands.guild_only()
-    async def clear_guild(self, ctx: Context, guilds: Greedy[Guild] = None):
+    async def clear_guild(self, ctx: Context, guilds: Greedy[Guild]):
         """Clear guild commands"""
 
-        if not guilds:
-            guilds = [ctx.guild]
+        if len(guilds) == 0:
+            assert isinstance(ctx.guild, Guild)
+            guilds.append(ctx.guild)
 
-        guild_count = 0
+        cleared_guilds = 0
 
         async with ctx.typing():
             for guild in guilds:
                 try:
                     self.bot.tree.clear_commands(guild=guild)
                     await self.bot.tree.sync(guild=guild)
-                    guild_count += 1
+                    cleared_guilds += 1
                 except discord.HTTPException:
                     pass
 
-            await ctx.send(f"Cleared commands from {guild_count} guild(s)")
+            await ctx.send(f"Cleared commands from {cleared_guilds} guild(s)")
 
     @commands.command(name="rs")
     async def reload_and_sync(self, ctx: Context):
