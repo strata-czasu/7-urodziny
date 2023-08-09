@@ -199,7 +199,7 @@ class Map(Cog):
         )
 
     @app_commands.command(name="mapa-ranking")  # type: ignore[arg-type]
-    async def completed_maps(self, itx: Interaction):
+    async def completed_map_ranking(self, itx: Interaction):
         """Sprawdź kto ukończył mapę"""
 
         assert isinstance(itx.guild, Guild)

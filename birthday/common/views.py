@@ -1,6 +1,6 @@
 from typing import Awaitable, Callable, Generic, TypeVar
 
-from discord import Embed, Interaction, Member, User
+from discord import ButtonStyle, Embed, Interaction, Member, User
 from discord.ui import Button, UserSelect, View, button, select
 
 from birthday.constants import EMBED_COLOR
@@ -73,29 +73,60 @@ class Paginator(Generic[T], View):
         await self._target.edit_original_response(view=None)
 
 
+UserSelectCallback = Callable[[Interaction, list[Member | User]], Awaitable[None]]
+
+
 class UserSelectView(View):
+    MIN_VALUES = 1
+    MAX_VALUES = 25
+
     def __init__(
         self,
         target: Interaction,
-        callback: Callable[[Interaction, list[Member | User]], Awaitable[None]],
+        accept_callback: UserSelectCallback,
+        change_callback: UserSelectCallback | None = None,
+        cancel_callback: Callable[[Interaction], Awaitable[None]] | None = None,
         *,
         timeout: float | None = 180,
     ) -> None:
         super().__init__(timeout=timeout)
         self._target = target
-        self._callback = callback
+        self._change_callback = change_callback
+        self._accept_callback = accept_callback
+        self._cancel_callback = cancel_callback
+        self._selected_values: list[Member | User] = []
 
     @select(
         cls=UserSelect,
         placeholder="Wybierz użytkowników",
-        min_values=1,
-        max_values=25,
+        min_values=MIN_VALUES,
+        max_values=MAX_VALUES,
     )
     async def user_select(self, itx: Interaction, select: UserSelect):
-        await self._callback(itx, select.values)
-        await self.on_timeout()
+        self._selected_values = select.values
+        if self._change_callback is not None:
+            return await self._change_callback(itx, select.values)
+
+        await itx.response.defer()
+
+    @button(label="Wyślij", style=ButtonStyle.green)
+    async def on_send(self, itx: Interaction, button: Button):
+        await self._accept_callback(itx, self._selected_values)
+
+        await self.cleanup()
+        self.stop()
+
+    @button(label="Anuluj", style=ButtonStyle.red)
+    async def on_cancel(self, itx: Interaction, button: Button):
+        if self._cancel_callback is not None:
+            return await self._cancel_callback(itx)
+
+        await self.cleanup()
         self.stop()
 
     async def on_timeout(self) -> None:
+        await self.cleanup()
+
+    async def cleanup(self) -> None:
         self.clear_items()
         await self._target.edit_original_response(view=None)
