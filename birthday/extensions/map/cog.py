@@ -3,6 +3,7 @@ from datetime import datetime
 from io import BytesIO
 
 from discord import Embed, File, Guild, Interaction, Member, app_commands
+from discord.app_commands import AppCommandError, CommandOnCooldown
 
 from birthday.common import Cog
 from birthday.common.bot import Bot
@@ -26,6 +27,7 @@ class Map(Cog):
     @app_commands.describe(
         member="Użytkownik, którego mapę chcesz sprawdzić (domyślnie Twoją)"
     )
+    @app_commands.checks.cooldown(1, 5)
     async def show_map(self, itx: Interaction, member: Member | None = None):
         """Sprawdź aktualny postęp na mapie"""
 
@@ -58,6 +60,15 @@ class Map(Cog):
         )
         embed.set_image(url=f"attachment://{filename}")
         await itx.followup.send(embed=embed, file=file)
+
+    @show_map.error
+    async def show_map_error(self, itx: Interaction, error: AppCommandError):
+        if isinstance(error, CommandOnCooldown):
+            await itx.response.send_message(
+                f"Zwolnij trochę! Spróbuj ponownie za **{error.retry_after:.0f}**s",
+                ephemeral=True,
+            )
+        raise error
 
     @app_commands.command(name="mapa-kup")  # type: ignore[arg-type]
     async def buy_map_element(self, itx: Interaction):
