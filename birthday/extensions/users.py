@@ -91,9 +91,10 @@ class Users(Cog):
                 f"Wybierz więcej niż 0 dukatów!", ephemeral=True
             )
 
-        async def user_select_callback(
-            itx: Interaction, users: list[Member | User]
-        ) -> None:
+        def format_prompt(current: int, max: int) -> str:
+            return f"Wybierz użytkowników, którym chcesz dodać **{amount}** 🪙 ({current}/{max})"
+
+        async def accept_callback(itx: Interaction, users: list[Member | User]) -> None:
             assert isinstance(itx.guild, Guild)
             updated_profiles: list[Profile] = []
             for user in users:
@@ -109,9 +110,16 @@ class Users(Cog):
                 f"Na konta {users_str} wypłynęło **{amount}** 🪙"
             )
 
-        view = UserSelectView(itx, user_select_callback)
+        async def change_callback(
+            callback_itx: Interaction, users: list[Member | User]
+        ) -> None:
+            content = format_prompt(len(users), UserSelectView.MAX_VALUES)
+            await itx.edit_original_response(content=content)
+            await callback_itx.response.defer()
+
+        view = UserSelectView(itx, accept_callback, change_callback)
         await itx.response.send_message(
-            f"Wybierz użytkowników, którym chcesz dodać **{amount}** 🪙",
+            format_prompt(0, UserSelectView.MAX_VALUES),
             view=view,
             ephemeral=True,
         )
