@@ -1,4 +1,5 @@
 import random
+from collections import Counter
 from datetime import datetime
 from io import BytesIO
 
@@ -220,6 +221,31 @@ class Map(Cog):
             )
 
         view = Paginator(itx, "Ukończone mapy", completions, page_formatter)
+        await itx.response.send_message(embed=view.get_embed(), view=view)
+
+    @app_commands.command(name="mapa-ranking-czesci")  # type: ignore[arg-type]
+    async def segment_ranking(self, itx: Interaction):
+        """Sprawdź kto ma najwięcej części mapy"""
+
+        assert isinstance(itx.guild, Guild)
+        segments = (
+            await MapSegment.objects.filter(profile__guild_id=itx.guild.id)
+            .select_related("profile")
+            .all()
+        )
+        segment_counts: Counter[int] = Counter(
+            segment.profile.user_id for segment in segments
+        )
+
+        def page_formatter(items: list[tuple[int, int]], start_position: int) -> str:
+            return "\n".join(
+                f"{i}. <@{user_id}> - {count} części"
+                for i, (user_id, count) in enumerate(items, start_position)
+            )
+
+        view = Paginator(
+            itx, "Zebrane części mapy", segment_counts.most_common(), page_formatter
+        )
         await itx.response.send_message(embed=view.get_embed(), view=view)
 
     async def _check_map_completion(self, itx: Interaction, profile: Profile):
