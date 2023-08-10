@@ -10,6 +10,7 @@ from birthday.common import Cog
 from birthday.common.bot import Bot
 from birthday.common.views import Paginator
 from birthday.constants import EMBED_COLOR
+from birthday.extensions.map.views import MapImageView
 from birthday.models import MapCompletion, MapSegment, Profile
 
 from .map_image import MapImageGenerator
@@ -39,33 +40,27 @@ class Map(Cog):
         await itx.response.defer()
 
         profile = await Profile.get_for(member.id, member.guild.id)
-        segments = await self._get_existing_segments(profile)
+        existing_segments = await self._get_existing_segments(profile)
 
-        filename = "mapa.jpg"
-        with BytesIO() as image_binary:
-            map_image = self.map_image_generator.get_image(segments)
-            map_image.save(image_binary, format="jpeg", optimize=True, quality=85)
-            image_binary.seek(0)
-            file = File(image_binary, filename)
+        view = MapImageView(
+            itx,
+            f"Mapa {member.display_name}",
+            profile,
+            existing_segments,
+            self.map_image_generator,
+        )
+        embed = view.get_embed()
+        file = view.get_map_image()
 
-        congrats_text = (
-            " Gratulacje!" if len(segments) == self.map_image_generator.SEGMENTS else ""
-        )
-        embed = Embed(
-            title=f"Mapa {member.display_name}",
-            description=(
-                f"Masz już **{len(segments)}/{self.map_image_generator.SEGMENTS}** "
-                f"części mapy! {congrats_text}"
-            ),
-            color=EMBED_COLOR,
-        )
-        embed.set_image(url=f"attachment://{filename}")
-        await itx.followup.send(embed=embed, file=file)
+        if member is itx.user and view.can_buy_element():
+            await itx.followup.send(embed=embed, file=file, view=view)
+        else:
+            await itx.followup.send(embed=embed, file=file)
 
     @show_map.error
     async def show_map_error(self, itx: Interaction, error: AppCommandError):
         if isinstance(error, CommandOnCooldown):
-            await itx.response.send_message(
+            return await itx.response.send_message(
                 f"Zwolnij trochę! Spróbuj ponownie za **{error.retry_after:.0f}**s",
                 ephemeral=True,
             )
