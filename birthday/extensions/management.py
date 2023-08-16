@@ -1,13 +1,18 @@
 import discord
 from discord import Guild
 from discord.ext import commands
-from discord.ext.commands import Context, Greedy
+from discord.ext.commands import Context, Greedy, NotOwner
+from discord.ext.commands.context import Context
 
 from birthday.common import Bot, Cog
 
 
-@commands.is_owner()
 class Management(Cog):
+    async def cog_check(self, ctx: Context) -> bool:  # type: ignore[override]
+        if not await ctx.bot.is_owner(ctx.author):
+            raise NotOwner("You do not own this bot.")
+        return True
+
     @commands.command(name="reload", aliases=["r"])
     async def reload(self, ctx: Context):
         """Reload all loaded extensions"""
