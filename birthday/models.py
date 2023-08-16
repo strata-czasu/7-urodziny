@@ -52,3 +52,14 @@ class MapCompletion(ormar.Model):
 
     class Meta(BaseMeta):
         tablename = "map_completion"
+
+
+class Transaction(ormar.Model):
+    id: int = ormar.Integer(primary_key=True)
+    profile: Profile = ormar.ForeignKey(Profile, nullable=False)
+    amount: int = ormar.Integer()
+    reason: str = ormar.String(max_length=255)
+    timestamp: datetime = ormar.DateTime(default=datetime.utcnow)
+
+    class Meta(BaseMeta):
+        tablename = "transaction"
