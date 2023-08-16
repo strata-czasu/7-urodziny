@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 
 from discord.ext import commands
+from discord.ext.commands import CommandError, errors
+from discord.ext.commands.context import Context
 
 from birthday.models import database
 
@@ -68,3 +70,12 @@ class Bot(commands.Bot):
         )
 
         log.info("Reloaded %d extension(s)", len(self.extensions))
+
+    async def on_command_error(self, context: Context, exception: CommandError) -> None:
+        if isinstance(exception, errors.CommandNotFound):
+            return
+        if isinstance(exception, errors.CheckFailure):
+            await context.send(str(exception))
+            return
+
+        await super().on_command_error(context, exception)
