@@ -1,9 +1,8 @@
 import random
 from collections import Counter
 from datetime import datetime
-from io import BytesIO
 
-from discord import Embed, File, Guild, Interaction, Member, app_commands
+from discord import Embed, Guild, Interaction, Member, app_commands
 from discord.app_commands import AppCommandError, CommandOnCooldown
 
 from birthday.common import Cog
@@ -11,7 +10,7 @@ from birthday.common.bot import Bot
 from birthday.common.views import Paginator
 from birthday.constants import EMBED_COLOR
 from birthday.extensions.map.views import MapImageView
-from birthday.models import MapCompletion, MapSegment, Profile
+from birthday.models import MapCompletion, MapSegment, Profile, Transaction
 
 from .map_image import MapImageGenerator
 
@@ -89,6 +88,11 @@ class Map(Cog):
         await MapSegment.objects.create(profile=profile, number=segment)
         profile.points -= self.MAP_ELEMENT_COST
         await profile.update()
+        await Transaction.objects.create(
+            profile=profile,
+            amount=-self.MAP_ELEMENT_COST,
+            reason="Kupno części mapy",
+        )
 
         embed = Embed(
             title="Zakupiono część mapy!",
@@ -129,6 +133,11 @@ class Map(Cog):
         )
         profile.points -= segments_to_buy * self.MAP_ELEMENT_COST
         await profile.update()
+        await Transaction.objects.create(
+            profile=profile,
+            amount=-segments_to_buy * self.MAP_ELEMENT_COST,
+            reason="Kupno części mapy",
+        )
 
         embed = Embed(
             title=f"Zakupiono {segments_to_buy} część mapy!",

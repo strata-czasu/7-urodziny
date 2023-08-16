@@ -4,7 +4,7 @@ from birthday.common import Bot, Cog
 from birthday.common.bot import Bot
 from birthday.common.views import Paginator, UserSelectView
 from birthday.constants import EMBED_COLOR
-from birthday.models import Profile
+from birthday.models import Profile, Transaction
 
 
 @app_commands.guild_only()
@@ -54,13 +54,16 @@ class Users(Cog):
         await itx.response.send_message(embed=view.get_embed(), view=view)
 
     @app_commands.command(name="dukaty-dodaj")  # type: ignore[arg-type]
-    @app_commands.rename(member="użytkownik", amount="ilość")
+    @app_commands.rename(member="użytkownik", amount="ilość", reason="powód")
     @app_commands.describe(
         member="Użytkownik, któremu chcesz dodać dukaty",
         amount="Ilość dukatów (może być ujemna)",
+        reason="Powód dodania dukatów",
     )
     @app_commands.default_permissions(administrator=True)
-    async def points_add(self, itx: Interaction, member: Member, amount: int):
+    async def points_add(
+        self, itx: Interaction, member: Member, amount: int, reason: str = ""
+    ):
         """Dodaj lub odejmij komuś dukaty"""
 
         if amount == 0:
@@ -71,6 +74,7 @@ class Users(Cog):
         profile = await Profile.get_for(member.id, member.guild.id)
         profile.points += amount
         await profile.update()
+        await Transaction.objects.create(profile=profile, amount=amount, reason=reason)
 
         embed = Embed(
             title="Dukaty wleciały na konto!",
@@ -80,10 +84,15 @@ class Users(Cog):
         await itx.response.send_message(embed=embed)
 
     @app_commands.command(name="dukaty-dodaj-wiele")  # type: ignore[arg-type]
-    @app_commands.rename(amount="ilość")
-    @app_commands.describe(amount="Ilość dukatów (może być ujemna)")
+    @app_commands.rename(amount="ilość", reason="powód")
+    @app_commands.describe(
+        amount="Ilość dukatów (może być ujemna)",
+        reason="Powód dodania dukatów",
+    )
     @app_commands.default_permissions(administrator=True)
-    async def points_add_multiple(self, itx: Interaction, amount: int):
+    async def points_add_multiple(
+        self, itx: Interaction, amount: int, reason: str = ""
+    ):
         """Dodaj lub odejmij dukaty wielu użytkownikom jednocześnie"""
 
         if amount == 0:
@@ -97,12 +106,18 @@ class Users(Cog):
         async def accept_callback(itx: Interaction, users: list[Member | User]) -> None:
             assert isinstance(itx.guild, Guild)
             updated_profiles: list[Profile] = []
+            transactions: list[Transaction] = []
             for user in users:
                 profile = await Profile.get_for(user.id, itx.guild.id)
                 profile.points += amount
                 updated_profiles.append(profile)
+                transactions.append(
+                    Transaction(profile=profile, amount=amount, reason=reason)
+                )
 
             await Profile.objects.bulk_update(updated_profiles, ["points"])
+            await Transaction.objects.bulk_create(transactions)
+
             users_str = ", ".join(
                 f"<@{profile.user_id}>" for profile in updated_profiles
             )
@@ -123,6 +138,38 @@ class Users(Cog):
             view=view,
             ephemeral=True,
         )
+
+    @app_commands.command(name="dukaty-transakcje")  # type: ignore[arg-type]
+    @app_commands.rename(member="użytkownik")
+    @app_commands.describe(
+        member="Użytkownik, którego transakcje chcesz zobaczyć (domyślnie Twoje)",
+    )
+    async def transactions(self, itx: Interaction, member: Member | None = None):
+        """Sprawdź historię transakcji dukatów"""
+
+        if member is None:
+            assert isinstance(itx.user, Member)
+            member = itx.user
+
+        transactions = (
+            await Transaction.objects.filter(profile__user_id=member.id)
+            .order_by("-timestamp")
+            .all()
+        )
+
+        def page_formatter(items: list[Transaction], _: int) -> str:
+            return "\n".join(
+                f"**{transaction.amount}** 🪙 - {transaction.reason}"
+                for transaction in items
+            )
+
+        view = Paginator(
+            itx,
+            f"Historia transakcji {member.display_name}",
+            transactions,
+            page_formatter,
+        )
+        await itx.response.send_message(embed=view.get_embed(), view=view)
 
 
 async def setup(bot: Bot) -> None:
