@@ -5,6 +5,7 @@ from birthday.common.bot import Bot
 from birthday.common.views import Paginator, UserSelectView
 from birthday.constants import EMBED_COLOR
 from birthday.models import Profile, Transaction
+from birthday.utils import get_env
 
 
 @app_commands.guild_only()
@@ -31,6 +32,8 @@ class Users(Cog):
             description=description,
             color=EMBED_COLOR,
         )
+        if secret_code := get_env("BOT_SECRET_CODE", None):
+            embed.set_footer(text=secret_code)
         await itx.response.send_message(embed=embed)
 
     @app_commands.command(name="dukaty-ranking")  # type: ignore[arg-type]
