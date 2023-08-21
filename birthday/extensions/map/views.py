@@ -71,6 +71,12 @@ class MapImageView(View):
 
     @button(label="Kup element", style=ButtonStyle.green)
     async def on_buy_element(self, itx: Interaction, button: Button):
+        if self._target.user.id != itx.user.id:
+            return await itx.response.send_message(
+                "Nie możesz kupić elementu mapy, bo nie jesteś jej właścicielem!",
+                ephemeral=True,
+            )
+
         if not self.can_buy_element():
             return await itx.response.send_message(
                 f"Nie masz wystarczająco dukatów, potrzebujesz **{MAP_ELEMENT_COST}** 🪙",
